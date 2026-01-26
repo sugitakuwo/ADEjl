@@ -25,3 +25,9 @@ julia scripts/run_depo.jl
 # or optimize deposition parameters
 julia scripts/run_depo.jl --optimize
 ```
+
+Optional flags include:
+- `--config <path>` to load a TOML config.
+- `--shape <legacy|sphere|spherocyl|rod>` (or `--rod`).
+- `--blocking <sp2|spherocyl2|gamma2|none>`.
+- `--fit-theta-mx`, `--fit-kdesorp`, and summary outputs in `Out_depo_fit_summary.txt`.
