@@ -295,6 +295,100 @@ module ADEdeposition
         end
     end
 
+    "Write a coverage profile to file."
+    function write_theta_profile(outfile, xs, theta)
+        open(outfile, "w") do f_io
+            println(f_io, "#x theta")
+            for (xval, tval) in zip(xs, theta)
+                println(f_io, xval, " ", tval)
+            end
+        end
+    end
+
+    "Write outlet coverage time series to file."
+    function write_theta_outlet(outfile, ts, theta_outlet)
+        open(outfile, "w") do f_io
+            println(f_io, "#tpv theta_outlet")
+            for (tval, th) in zip(ts, theta_outlet)
+                println(f_io, tval, " ", th)
+            end
+        end
+    end
+
+    "Write coverage profiles for three pulses."
+    function write_coverage_profiles(sols; prefix = "Out")
+        write_theta_profile("$(prefix)_theta_profile_pulse1.txt", sols.xs1, sols.soltheta1[:, end])
+        write_theta_profile("$(prefix)_theta_profile_pulse2.txt", sols.xs2, sols.soltheta2[:, end])
+        write_theta_profile("$(prefix)_theta_profile_pulse3.txt", sols.xs3, sols.soltheta3[:, end])
+        write_theta_outlet("$(prefix)_theta_outlet_pulse1.txt", sols.ts1, sols.soltheta1[end, :])
+        write_theta_outlet("$(prefix)_theta_outlet_pulse2.txt", sols.ts2, sols.soltheta2[end, :])
+        write_theta_outlet("$(prefix)_theta_outlet_pulse3.txt", sols.ts3, sols.soltheta3[end, :])
+    end
+
+    "Plot BTCs and coverage profiles."
+    function plot_depo_profiles(sols; outfile = "Out_depo_profiles.png")
+        p1 = plot(sols.ts1, sols.solc1[end, :], xlabel = "tpv", ylabel = "c/c0",
+            label = "1st", title = "BTC (outlet)")
+        plot!(p1, sols.ts2, sols.solc2[end, :], label = "2nd")
+        plot!(p1, sols.ts3, sols.solc3[end, :], label = "3rd")
+
+        p2 = plot(sols.xs1, sols.soltheta1[:, end], xlabel = "x", ylabel = "theta",
+            label = "1st", title = "Coverage (end of pulse)")
+        plot!(p2, sols.xs2, sols.soltheta2[:, end], label = "2nd")
+        plot!(p2, sols.xs3, sols.soltheta3[:, end], label = "3rd")
+
+        plot(p1, p2, layout = (1, 2), size = (1500, 600))
+        savefig(outfile)
+    end
+
+    "Resolve blocking model names to functions."
+    function resolve_blocking_models(names::Vector{String})
+        mapping = Dict(
+            "sp2" => B_RSA_SP2,
+            "sphere" => B_RSA_SP2,
+            "spherocyl2" => B_RSA_nonSP_spherocyl2,
+            "spherocyl" => B_RSA_nonSP_spherocyl2,
+            "gamma2" => B_RSA_nonSP_gamma2,
+            "rod" => B_RSA_nonSP_gamma2,
+            "none" => B_none,
+            "off" => B_none
+        )
+        models = Vector{Tuple{String, Function}}()
+        for name in names
+            haskey(mapping, name) || error("Unknown blocking model: $(name)")
+            push!(models, (name, mapping[name]))
+        end
+        return models
+    end
+
+    "Plot ASF curves for multiple blocking models."
+    function plot_blocking_models(models, geom; thmax, theta_mx = 1.0, outfile = "Out_blocking_compare.png")
+        p = plot(xlabel = "theta", ylabel = "ASF", title = "Blocking comparison")
+        theta = range(0.0, stop = thmax * theta_mx, length = 200)
+        for (name, fn) in models
+            shape_param, _ = select_shape_param(fn, geom)
+            vals = [blocking_value(fn, th, thmax, shape_param, theta_mx) for th in theta]
+            plot!(p, theta, vals, label = name)
+        end
+        savefig(p, outfile)
+    end
+
+    "Write ASF curves for multiple blocking models."
+    function write_blocking_models(models, geom; thmax, theta_mx = 1.0, outfile = "Out_blocking_compare.txt")
+        theta = range(0.0, stop = thmax * theta_mx, length = 200)
+        open(outfile, "w") do f_io
+            println(f_io, "#theta " * join(first.(models), " "))
+            for th in theta
+                vals = Vector{Float64}()
+                for (_, fn) in models
+                    shape_param, _ = select_shape_param(fn, geom)
+                    push!(vals, blocking_value(fn, th, thmax, shape_param, theta_mx))
+                end
+                println(f_io, th, " ", join(vals, " "))
+            end
+        end
+    end
+
     "Least squares objective for fitting deposition parameters."
     function Lsq_ADEdepo_pulse(p::Vector, datasets, params, fit_spec; blocking_fn = B_RSA_SP2)
         kdepo, thmax, theta_mx, kdesorp = unpack_fit_params(p, fit_spec)
@@ -308,7 +402,9 @@ module ADEdeposition
         use_tracer_fit::Union{Nothing, Bool} = nothing, tracer_fit_path = nothing,
         fit_thmax::Union{Nothing, Bool} = nothing, fit_theta_mx::Union{Nothing, Bool} = nothing,
         fit_kdesorp::Union{Nothing, Bool} = nothing, compare_blocking::Union{Nothing, Bool} = nothing,
-        scan_pairs::Union{Nothing, Bool} = nothing, plot_scan::Union{Nothing, Bool} = nothing)
+        scan_pairs::Union{Nothing, Bool} = nothing, plot_scan::Union{Nothing, Bool} = nothing,
+        write_profiles::Union{Nothing, Bool} = nothing, plot_profiles::Union{Nothing, Bool} = nothing,
+        compare_blocking_models::Union{Nothing, Bool} = nothing)
         Absinput = 0.3468
         tatmax = 141.0
         tpulse = 20.0
@@ -417,8 +513,13 @@ module ADEdeposition
         compare_blocking = compare_blocking === nothing ? config_get_bool(analysis_cfg, "compare_blocking", false) : compare_blocking
         scan_pairs = scan_pairs === nothing ? config_get_bool(analysis_cfg, "scan_pairs", false) : scan_pairs
         plot_scan = plot_scan === nothing ? config_get_bool(analysis_cfg, "plot_scan", false) : plot_scan
+        write_profiles = write_profiles === nothing ? config_get_bool(analysis_cfg, "write_profiles", false) : write_profiles
+        plot_profiles = plot_profiles === nothing ? config_get_bool(analysis_cfg, "plot_profiles", false) : plot_profiles
+        compare_blocking_models = compare_blocking_models === nothing ?
+            config_get_bool(analysis_cfg, "compare_blocking_models", false) : compare_blocking_models
         scan_points = Int(config_get(analysis_cfg, "scan_points", 9))
         scan_factor = config_get(analysis_cfg, "scan_factor", 0.5)
+        blocking_model_names = config_get(analysis_cfg, "blocking_models", ["sp2", "spherocyl2", "gamma2", "none"])
 
         if particle_shape !== nothing
             shape_default = particle_shape
@@ -573,6 +674,20 @@ module ADEdeposition
             if compare_blocking
                 println(f_io, "sse_noblock = $(sse_noblock)")
             end
+        end
+
+        if write_profiles
+            write_coverage_profiles(sols)
+        end
+        if plot_profiles
+            plot_depo_profiles(sols)
+        end
+
+        if compare_blocking_models
+            model_names = String.(blocking_model_names)
+            models = resolve_blocking_models(model_names)
+            write_blocking_models(models, geom; thmax = thmax_opt, theta_mx = theta_mx_opt)
+            plot_blocking_models(models, geom; thmax = thmax_opt, theta_mx = theta_mx_opt)
         end
 
         if scan_pairs

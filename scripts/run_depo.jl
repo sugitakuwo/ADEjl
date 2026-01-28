@@ -16,8 +16,10 @@ Optional flags:
 - `--shape <legacy|sphere|spherocyl|rod>` or `--rod`.
 - `--blocking <sp2|spherocyl2|gamma2|none>`.
 - `--fit-theta-mx` and `--theta-mx <value>`.
+- `--kdepo <value>` and `--thmax <value>`.
 - `--fit-kdesorp` and `--kdesorp <value>`.
-- `--compare-blocking`, `--scan`, `--plot-scan`.
+- `--compare-blocking`, `--compare-blocking-models`, `--scan`, `--plot-scan`.
+- `--write-profiles`, `--plot-profiles`.
 - `--use-tracer` or `--tracer-fit <path>`.
 """
 function parse_args(args)
@@ -54,6 +56,16 @@ function parse_args(args)
             i > length(args) && error("Missing value for --theta-mx")
             opts["theta_mx"] = parse(Float64, args[i])
             i += 1
+        elseif arg == "--kdepo"
+            i += 1
+            i > length(args) && error("Missing value for --kdepo")
+            opts["kdepo"] = parse(Float64, args[i])
+            i += 1
+        elseif arg == "--thmax"
+            i += 1
+            i > length(args) && error("Missing value for --thmax")
+            opts["thmax"] = parse(Float64, args[i])
+            i += 1
         elseif arg == "--fit-kdesorp"
             opts["fit_kdesorp"] = true
             i += 1
@@ -64,6 +76,15 @@ function parse_args(args)
             i += 1
         elseif arg == "--compare-blocking"
             opts["compare_blocking"] = true
+            i += 1
+        elseif arg == "--compare-blocking-models"
+            opts["compare_blocking_models"] = true
+            i += 1
+        elseif arg == "--write-profiles"
+            opts["write_profiles"] = true
+            i += 1
+        elseif arg == "--plot-profiles"
+            opts["plot_profiles"] = true
             i += 1
         elseif arg == "--scan"
             opts["scan_pairs"] = true
@@ -132,6 +153,14 @@ function main()
         fit_overrides["theta_mx_fixed"] = opts["theta_mx"]
         fit_overrides["theta_mx_init"] = opts["theta_mx"]
     end
+    if haskey(opts, "kdepo")
+        fit_overrides["kdepo_fixed"] = opts["kdepo"]
+        fit_overrides["kdepo_init"] = opts["kdepo"]
+    end
+    if haskey(opts, "thmax")
+        fit_overrides["thmax_fixed"] = opts["thmax"]
+        fit_overrides["thmax_init"] = opts["thmax"]
+    end
     if haskey(opts, "kdesorp")
         fit_overrides["kdesorp_fixed"] = opts["kdesorp"]
         fit_overrides["kdesorp_init"] = opts["kdesorp"]
@@ -160,6 +189,9 @@ function main()
         fit_theta_mx = get(opts, "fit_theta_mx", nothing),
         fit_kdesorp = get(opts, "fit_kdesorp", nothing),
         compare_blocking = get(opts, "compare_blocking", nothing),
+        compare_blocking_models = get(opts, "compare_blocking_models", nothing),
+        write_profiles = get(opts, "write_profiles", nothing),
+        plot_profiles = get(opts, "plot_profiles", nothing),
         scan_pairs = get(opts, "scan_pairs", nothing),
         plot_scan = get(opts, "plot_scan", nothing))
 end

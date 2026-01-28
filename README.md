@@ -31,3 +31,4 @@ Optional flags include:
 - `--shape <legacy|sphere|spherocyl|rod>` (or `--rod`).
 - `--blocking <sp2|spherocyl2|gamma2|none>`.
 - `--fit-theta-mx`, `--fit-kdesorp`, and summary outputs in `Out_depo_fit_summary.txt`.
+- `--kdepo`, `--thmax`, `--write-profiles`, `--plot-profiles`, `--compare-blocking-models`.
