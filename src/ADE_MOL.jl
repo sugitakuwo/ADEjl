@@ -47,6 +47,7 @@ include("ade_deposition.jl")
 include("fit_solute.jl")
 
 using .ADEdeposition
-export fit_ADEsolute_pulse, fit_ADEdepo_pulse, fit_ADEdepo_spherocyl2_pulse, ADE_depo_RSA_nonSP_pulse
+export fit_ADEsolute_pulse, fit_ADEdepo_pulse, fit_ADEdepo_spherocyl2_pulse, ADE_depo_RSA_nonSP_pulse,
+    load_depo_config
 
 end

@@ -1,6 +1,7 @@
 module Blocking
     export B_RSA_SP, B_RSA_SP2, thmax_prolate_unoriented, thmax_prolate_average,
-        B_RSA_nonSP_prolate, B_RSA_nonSP_spherocyl, B_RSA_nonSP_spherocyl2
+        B_RSA_nonSP_prolate, B_RSA_nonSP_spherocyl, B_RSA_nonSP_spherocyl2,
+        B_RSA_nonSP_gamma2, B_none
 
     using Symbolics
     using SpecialFunctions
@@ -70,9 +71,30 @@ module Blocking
         end
     end
 
+    "Blocking function using a provided shape factor gamma_p with transition at theta_t."
+    function B_RSA_nonSP_gamma2(theta, thmax, gamma_p)
+        theta_t = 0.34
+        if theta > theta_t
+            term1 = (1 - theta_t)
+            exp1 = -(1 + 2 * gamma_p) * theta_t / (1 - theta_t)
+            exp2 = -gamma_p * (theta_t / (1 - theta_t))^2
+            return term1 * exp(exp1 + exp2) * ((thmax - theta) / (thmax - theta_t))^4
+        else
+            term1 = (1 - theta)
+            exp1 = -(1 + 2 * gamma_p) * theta / (1 - theta)
+            exp2 = -gamma_p * (theta / (1 - theta))^2
+            return term1 * exp(exp1 + exp2)
+        end
+    end
+
+    "No-blocking helper (ASF = 1)."
+    B_none(theta, thmax) = 1.0
+
     @register_symbolic B_RSA_SP(theta, thmax)
     @register_symbolic B_RSA_SP2(theta, thmax)
     @register_symbolic B_RSA_nonSP_prolate(theta, thmax, As)
     @register_symbolic B_RSA_nonSP_spherocyl(theta, thmax, As)
     @register_symbolic B_RSA_nonSP_spherocyl2(theta, thmax, As)
+    @register_symbolic B_RSA_nonSP_gamma2(theta, thmax, gamma_p)
+    @register_symbolic B_none(theta, thmax)
 end
